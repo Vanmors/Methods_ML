@@ -2,12 +2,11 @@ import numpy as np
 
 
 class DecisionTreeNode:
-    def __init__(self, feature_index=None, threshold=None, value=None, left=None, right=None):
+    def __init__(self, feature_index=None, threshold=None, value=None, children=None):
         self.feature_index = feature_index  # Индекс признака, по которому делается разделение
         self.threshold = threshold  # Порог для разделения
         self.value = value  # Значение, возвращаемое узлом (для листового узла)
-        self.left = left  # Левый поддерево (меньшие или равные порогу значения)
-        self.right = right  # Правый поддерево (большие значения)
+        self.children = children  # Рекурсивный словарь дочерних узлов
 
 
 class DecisionTree:
@@ -22,29 +21,26 @@ class DecisionTree:
         num_samples, num_features = X.shape
         unique_classes = np.unique(y)
 
-
         if depth == self.max_depth or len(unique_classes) == 1:
             return DecisionTreeNode(value=self._most_common_label(y))
-
 
         best_feature_index, best_threshold = self._find_best_split(X, y)
 
         if best_feature_index is None:
             return DecisionTreeNode(value=self._most_common_label(y))
 
-        # Разделение данных
-        left_mask = X.iloc[:, best_feature_index] <= best_threshold
-        right_mask = ~left_mask
 
-        # Рекурсивное построение левого и правого поддеревьев
-        left_subtree = self._build_tree(X[left_mask], y[left_mask], depth + 1)
-        right_subtree = self._build_tree(X[right_mask], y[right_mask], depth + 1)
+        children = {}
+        thresholds = np.unique(X.iloc[:, best_feature_index])
+        for threshold in thresholds:
+            child_mask = X.iloc[:, best_feature_index] <= threshold
+            child_subtree = self._build_tree(X[child_mask], y[child_mask], depth + 1)
+            children[threshold] = child_subtree
 
         return DecisionTreeNode(
             feature_index=best_feature_index,
             threshold=best_threshold,
-            left=left_subtree,
-            right=right_subtree
+            children=children
         )
 
     def _find_best_split(self, X, y):
@@ -74,7 +70,7 @@ class DecisionTree:
         return best_feature_index, best_threshold
 
     def _calculate_entropy(self, y_left, y_right):
-        # Рассчет энтропии
+
         num_left = len(y_left)
         num_right = len(y_right)
         total_samples = num_left + num_right
@@ -100,22 +96,24 @@ class DecisionTree:
         return np.bincount(y).argmax()
 
     def predict(self, X):
-        # Прогнозирование меток для входных данных
-        # return np.array([self._predict_tree(x, self.tree) for x in X])
-        X_values = X.values
-        prediction = []
-        for row in X_values:
-            prediction.append(self._predict_tree(row, self.tree))
-        return prediction
+        return np.array([self._predict_tree(x, self.tree) for x in X.values])
 
     def _predict_tree(self, x, node):
-        # Рекурсивное прогнозирование для одного элемента
-        if node.value is not None:
-            return node.value
-        if x[node.feature_index] <= node.threshold:
-            return self._predict_tree(x, node.left)
-        else:
-            return self._predict_tree(x, node.right)
+        if node.children is None:
+            return node.value  # Это листовой узел, возвращаем значение
+
+        # Ищем правильное дочернее поддерево для данного примера
+        for threshold, child_subtree in node.children.items():
+            if x[node.feature_index] <= threshold:
+                return self._predict_tree(x, child_subtree)
+
+
+
+
+
+
+
+
 
     def get_tpr_fpr(self, div_value, Y_test, probas):
         predicted_values = []
@@ -160,10 +158,9 @@ class DecisionTree:
     def calculate_proba(self, X_values, root, depth=0):
         if root.value is not None:
             return 1 / depth
-        if (X_values[root.feature_index] < root.threshold):
-            return self.calculate_proba(X_values, root.left, depth + 1)
-        else:
-            return self.calculate_proba(X_values, root.right, depth + 1)
+        for threshold, child_subtree in root.children.items():
+            if X_values[root.feature_index] <= threshold:
+                return self._predict_tree(X_values, child_subtree)
 
     def calculate_probas(self, X, model):
         X_values = X.values
@@ -200,7 +197,6 @@ class DecisionTree:
         recall = (true_positive) / (true_positive + false_negative)
 
         return precision, recall
-
 
     def get_all_precisions(self, div_values, Y_test, probas):
         precisions = []

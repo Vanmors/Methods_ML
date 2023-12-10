@@ -4,6 +4,9 @@ from ucimlrepo import fetch_ucirepo
 import DecisionTree
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+import NotBinaryTree
+
+
 
 # from sklearn.metrics import confusion_matrix, accuracy_score, recall_score
 
@@ -50,12 +53,12 @@ for i in X['stalk-root'].values:
 
 X['stalk-root'].fillna(np.random.choice(unique_values), inplace=True)
 
-# Получить список всех признаков
+
 all_features = X.columns
-# Определить количество признаков, которые нужно удалить
+
 num_features_to_select = len(X.columns) - int(np.sqrt(len(all_features)))
 
-# Выбрать случайные признаки для удаления
+
 selected_features_to_drop = np.random.choice(all_features, size=num_features_to_select, replace=False)
 X = X.drop(selected_features_to_drop, axis=1)
 
@@ -73,7 +76,9 @@ split_index = int(len(X) * (1 - test_size))
 # y_train, y_test = y[indices[:split_index]], y[indices[split_index:]]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-model = DecisionTree.DecisionTree(4)
+
+
+model = NotBinaryTree.DecisionTree(4)
 model.fit(X_train, y_train)
 
 X_test = X_test.astype('int8')
@@ -97,10 +102,6 @@ print("True Positive:", tp)
 print("accuracy:", (tp + tn) / (tp + tn + fp + fn))
 print("precision:", tp / (tp + fp))
 print("recall:", tp / (tp + fn))
-
-# print("AUC-ROC Score:", auc_roc(y_test, y_pred))
-
-
 
 
 probas = np.sort(model.calculate_probas(X_test, model))
