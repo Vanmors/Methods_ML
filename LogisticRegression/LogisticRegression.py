@@ -41,11 +41,41 @@ class LogisticRegression:
         total = len(y_true)
         return correct / total
 
-    def log_loss(self, y_true, y_prob):
-        epsilon = 1e-15  # используется для предотвращения логарифмической бесконечности
-        y_prob = np.clip(y_prob, epsilon, 1 - epsilon)  # предотвращение выхода за границы [epsilon, 1-epsilon]
+    def newton_optimization(self, X_train, Y_train):
+        objects_num, characteristics_num = X_train.shape
 
-        # Вычисление Log Loss
+        self.weights = np.zeros(characteristics_num)
+        losses = []
+        self.bias = 0
+
+        for iteration in range(1, self.iterations + 1):
+
+            t = np.dot(X_train, self.weights) + self.bias
+            #  prediction
+            z = self.sigmoid(t)
+
+            #  ЧП стоимости по весам
+            dw = (1 / objects_num) * np.dot(X_train.T, (z - Y_train))
+            #  ЧП стоимости по смещению
+            db = (1 / objects_num) * np.sum(z - Y_train)
+
+            hessian = (1 / objects_num) * (X_train.T @ ((z * (1 - z)) * X_train.T).T)
+
+            self.weights -= np.linalg.inv(hessian) @ dw
+            self.bias -= db
+
+            if iteration % 100 == 0:
+                loss = self.log_loss(Y_train, z)
+                losses.append(loss)
+
+        # coeff = {'weights': self.weights, 'bias': self.bias}
+        # return coeff, losses
+
+    def log_loss(self, y_true, y_prob):
+        epsilon = 1e-15
+        y_prob = np.clip(y_prob, epsilon, 1 - epsilon)
+
         loss = -np.mean(y_true * np.log(y_prob) + (1 - y_true) * np.log(1 - y_prob))
         return loss
+
 
